@@ -133,10 +133,16 @@ enum ofp_type {
 
     /* Queue Configuration messages. */
     OFPT_QUEUE_GET_CONFIG_REQUEST,  /* Controller/switch message */
-    OFPT_QUEUE_GET_CONFIG_REPLY,    /* Controller/switch message */
+
+    OFPT_QUEUE_GET_CONFIG_REPLY,     /* Controller/switch message */
 
     /* Key messages. */
-    OFPT_KEY_MOD              /* Controller/switch message */
+    OFPT_KEY_MOD,                    /* Controller/switch message */
+
+	/**
+	 *  Modify By AlbertCheng Second key value 2020/10/06	*/
+    OFPT_KEY_MOD2                    /* Controller/switch message */
+
 };
 
 /* Header on all OpenFlow packets. */
@@ -175,6 +181,11 @@ struct ofp_switch_config {
 };
 OFP_ASSERT(sizeof(struct ofp_switch_config) == 12);
 
+
+
+
+
+
 /* Capabilities supported by the datapath. */
 enum ofp_capabilities {
     OFPC_FLOW_STATS     = 1 << 0,  /* Flow statistics. */
@@ -186,6 +197,11 @@ enum ofp_capabilities {
     OFPC_QUEUE_STATS    = 1 << 6,  /* Queue statistics. */
     OFPC_ARP_MATCH_IP   = 1 << 7   /* Match IP addresses in ARP pkts. */
 };
+
+
+
+
+
 
 /* Flags to indicate behavior of the physical port.  These flags are
  * used in ofp_phy_port to describe the current configuration.  They are
@@ -202,6 +218,11 @@ enum ofp_port_config {
     OFPPC_NO_FWD       = 1 << 5,  /* Drop packets forwarded to port. */
     OFPPC_NO_PACKET_IN = 1 << 6   /* Do not send packet-in msgs for port. */
 };
+
+
+
+
+
 
 /* Current state of the physical port.  These are not configurable from
  * the controller.
@@ -220,6 +241,11 @@ enum ofp_port_state {
     OFPPS_STP_MASK    = 3 << 8  /* Bit mask for OFPPS_STP_* values. */
 };
 
+
+
+
+
+
 /* Features of physical ports available in a datapath. */
 enum ofp_port_features {
     OFPPF_10MB_HD    = 1 << 0,  /* 10 Mb half-duplex rate support. */
@@ -236,6 +262,10 @@ enum ofp_port_features {
     OFPPF_PAUSE_ASYM = 1 << 11  /* Asymmetric pause. */
 };
 
+
+
+
+
 /* Description of a physical port */
 struct ofp_phy_port {
     uint16_t port_no;
@@ -243,6 +273,7 @@ struct ofp_phy_port {
     char name[OFP_MAX_PORT_NAME_LEN]; /* Null-terminated */
 
     uint32_t config;        /* Bitmap of OFPPC_* flags. */
+    /* OFPPS_* -> OpenFlow Protocol Port Status */
     uint32_t state;         /* Bitmap of OFPPS_* flags. */
 
     /* Bitmaps of OFPPF_* that describe features.  All bits zeroed if
@@ -253,6 +284,11 @@ struct ofp_phy_port {
     uint32_t peer;          /* Features advertised by peer. */
 };
 OFP_ASSERT(sizeof(struct ofp_phy_port) == 48);
+
+
+
+
+
 
 /* Switch features. */
 struct ofp_switch_features {
@@ -276,6 +312,11 @@ struct ofp_switch_features {
                                       the header. */
 };
 OFP_ASSERT(sizeof(struct ofp_switch_features) == 32);
+
+
+
+
+
 
 /* What changed about the physical port */
 enum ofp_port_reason {
@@ -309,8 +350,11 @@ struct ofp_port_mod {
     uint32_t advertise;     /* Bitmap of "ofp_port_features"s.  Zero all
                                bits to prevent any action taking place. */
     uint8_t pad[4];         /* Pad to 64-bits. */
+
+    uint32_t custom_port;
 };
-OFP_ASSERT(sizeof(struct ofp_port_mod) == 32);
+// change sizeof(struct ofp_port_mod) == 32 to sizeof(struct ofp_port_mod) == 36
+OFP_ASSERT(sizeof(struct ofp_port_mod) == 36);
 
 /* Why is this packet being sent to the controller? */
 enum ofp_packet_in_reason {
@@ -733,6 +777,10 @@ enum ofp_stats_types {
      * The reply body is struct ofp_key. */
     OFPST_KEY,
 
+    /* Switch Key2
+     * Modify By AlbertCheng Second key value 2020/10/06 */
+    OFPST_KEY2,
+
     /* Vendor extension.
      * The request and reply bodies begin with a 32-bit vendor ID, which takes
      * the same form as in "struct ofp_vendor_header".  The request and reply
@@ -974,15 +1022,31 @@ struct ofp_queue_stats {
 };
 OFP_ASSERT(sizeof(struct ofp_queue_stats) == 32);
 
+/* dump-key use openflow message OFPT KEYD */
 struct ofp_key {
-	uint32_t key;
+	uint64_t key;
 };
-OFP_ASSERT(sizeof(struct ofp_key) == 4);
+OFP_ASSERT(sizeof(struct ofp_key) == 8);
 
+/* key-mod use openflow message OFPT KEY MO */
 struct ofp_key_mod {
 	struct ofp_header header;
-	uint32_t key;
+	uint64_t key;
 };
-OFP_ASSERT(sizeof(struct ofp_key_mod) == 12);
+OFP_ASSERT(sizeof(struct ofp_key_mod) == 16);
+
+
+/* Modify By AlbertCheng Second key value 2020/10/06 */
+struct ofp_key2 {
+	uint64_t key2;
+};
+OFP_ASSERT(sizeof(struct ofp_key2) == 8);
+
+/* Modify By AlbertCheng Second key value 2020/10/06 */
+struct ofp_key_mod2 {
+	struct ofp_header header;
+	uint64_t key2;
+};
+OFP_ASSERT(sizeof(struct ofp_key_mod2) == 16);
 
 #endif /* openflow/openflow.h */

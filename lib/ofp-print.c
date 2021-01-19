@@ -833,6 +833,20 @@ ofp_print_key_mod(struct ds *string, const void *oh, size_t len UNUSED,
     ds_put_format(string, "Key: %lu\n", opm->key);
 }
 
+
+
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+static void
+ofp_print_key_mod2(struct ds *string, const void *oh, size_t len UNUSED,
+                  int verbosity UNUSED)
+{
+    const struct ofp_key_mod2 *opm = oh;
+
+    ds_put_format(string, "Key: %lu\n", opm->key2);
+}
+
 struct error_type {
     int type;
     int code;
@@ -966,8 +980,27 @@ ofp_key_stats_reply(struct ds *string, const void *body, size_t len UNUSED,
                     int verbosity UNUSED)
 {
     const struct ofp_key *ods = body;
-
+    /*
+    change : ds_put_format(string, "Key: %lu\n", opm->key);
+    to : change : ds_put_format(string, "Key: %lu\n", opm->key);
+    */
     ds_put_format(string, "Key: %lu\n", ods->key);
+}
+
+
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+static void
+ofp_key_stats_reply2(struct ds *string, const void *body, size_t len UNUSED,
+                    int verbosity UNUSED)
+{
+    const struct ofp_key2 *ods = body;
+    /*
+    change : ds_put_format(string, "Key: %lu\n", opm->key);
+    to : change : ds_put_format(string, "Key: %lu\n", opm->key);
+    */
+    ds_put_format(string, "Key2: %lu\n", ods->key2);
 }
 
 static void
@@ -1256,12 +1289,22 @@ print_stats(struct ds *string, int type, const void *body, size_t body_len,
             { sizeof(uint32_t), SIZE_MAX, vendor_stat },
             { sizeof(uint32_t), SIZE_MAX, vendor_stat },
         },
-        {
+        {            
             OFPST_KEY,
             "key",
             { 0, 0, NULL },
             { 0, SIZE_MAX, ofp_key_stats_reply },
         },
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+        {            
+            OFPST_KEY2,
+            "key",
+            { 0, 0, NULL },
+            { 0, SIZE_MAX, ofp_key_stats_reply2 },
+        },
+
         {
             -1,
             "unknown",
@@ -1549,6 +1592,12 @@ static const struct openflow_packet packets[] = {
         "key_mod",
         sizeof (struct ofp_key_mod),
         ofp_print_key_mod,
+    },
+    {
+        OFPT_KEY_MOD2,
+        "key_mod2",
+        sizeof (struct ofp_key_mod2),
+        ofp_print_key_mod2,
     }
 };
 

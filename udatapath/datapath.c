@@ -135,6 +135,8 @@ extern char sw_desc;
 extern char dp_desc;
 extern char serial_num;
 
+/*OFP_SUPPORTED_CAPABILITIES -> OFPC_PORT_STATS is what i need */
+
 /* Capabilities supported by this implementation. */
 #define OFP_SUPPORTED_CAPABILITIES ( OFPC_FLOW_STATS        \
                                      | OFPC_TABLE_STATS        \
@@ -744,6 +746,7 @@ dp_wait(struct datapath *dp)
 /* Send packets out all the ports except the originating one.  If the
  * "flood" argument is set, don't send out ports with flooding disabled.
  */
+// case OFPP_FLOOD : output_all(dp, buffer, in_port, 1);
 static int
 output_all(struct datapath *dp, struct ofpbuf *buffer, int in_port, int flood)
 {
@@ -969,6 +972,34 @@ dp_output_control(struct datapath *dp, struct ofpbuf *buffer, int in_port,
     send_openflow_buffer(dp, buffer, NULL);
 }
 
+void
+dp_output_control_nip_get_input(struct datapath *dp, struct ofpbuf *buffer, int in_port,
+                  size_t max_len, int reason)
+{
+    struct ofp_packet_in *opi;
+    size_t total_len;
+    uint32_t buffer_id;
+
+    buffer_id = save_buffer(buffer);
+    total_len = buffer->size;
+    if (buffer_id != UINT32_MAX && buffer->size > max_len) {
+        buffer->size = max_len;
+    }
+
+    opi = ofpbuf_push_uninit(buffer, offsetof(struct ofp_packet_in, data));
+    opi->header.version = OFP_VERSION;
+    opi->header.type    = OFPT_PACKET_IN;
+    opi->header.length  = htons(buffer->size);
+    opi->header.xid     = htonl(0);
+    opi->buffer_id      = htonl(buffer_id);
+    opi->total_len      = htons(total_len);
+    opi->in_port        = htons(in_port);
+    opi->reason         = reason;
+    opi->pad            = 0;
+    //ofpbuf_delete(buffer); not checked yet
+    //send_openflow_buffer(dp, buffer, NULL);
+}
+
 static void
 fill_queue_desc(struct ofpbuf *buffer, struct sw_queue *q,
                 struct ofp_packet_queue *desc)
@@ -1043,6 +1074,11 @@ dp_send_features_reply(struct datapath *dp, const struct sender *sender)
     ofr->datapath_id  = htonll(dp->id);
     ofr->n_tables     = dp->chain->n_tables;
     ofr->n_buffers    = htonl(N_PKT_BUFFERS);
+    /* OpenFlow OFPC_PORT_STATS supported in OFP_SUPPORTED_CAPABILITIES 
+    The htonl() function converts the unsigned integer hostlong from host byte order 
+    to network byte order. */
+    /*OFP_SUPPORTED_CAPABILITIES contain OFPC_PORT_STATS is what i need */
+
     ofr->capabilities = htonl(OFP_SUPPORTED_CAPABILITIES);
     ofr->actions      = htonl(OFP_SUPPORTED_ACTIONS);
     LIST_FOR_EACH (p, struct sw_port, node, &dp->port_list) {
@@ -1207,32 +1243,164 @@ int run_flow_through_tables(struct datapath *dp, struct ofpbuf *buffer,
         return 0;
     } else {
         return -ESRCH;
+        /* ESRCH => No such process */
     }
 }
+
+
 
 /* 'buffer' was received on 'p', which may be a a physical switch port or a
  * null pointer.  Process it according to 'dp''s flow table, sending it up to
  * the controller if no flow matches.  Takes ownership of 'buffer'. */
 void fwd_port_input(struct datapath *dp, struct ofpbuf *buffer,
                     struct sw_port *p)
-{
+{   
+    
     if(!dp->key) {
+        // run_flow_through_tables : 
+        //   execute_actions -> do_output -> dp_output_port -> default output_packet() 
         if (run_flow_through_tables(dp, buffer, p)) {
             dp_output_control(dp, buffer, p->port_no,
                               dp->miss_send_len, OFPR_NO_MATCH);
+        // OFPR_NO_MATCH => No matching flow( table-miss flow entry)
         }
     } else {
-/* MAC */
+        
         struct eth_header *eh = buffer->data;
-		output_packet(dp, buffer, (*(uint32_t*)(eh->eth_dst)) % dp->key, 0);
+        uint64_t mac_src = (*(uint64_t*)(eh->eth_src));
+        uint64_t mask = 140737488355327;
+        mac_src = mac_src >> 4;
+        mac_src = mac_src & mask;
+        
+        uint64_t cur_key = dp->key;
+        // to void input port to output packet
+        uint64_t mac__dst = (*(uint64_t*)(eh->eth_dst));
+        mac__dst = mac__dst >> 4;
+        mac__dst = mac__dst & mask;
+        
+        // get total port number
+        int port_count = -1;
+        LIST_FOR_EACH (p, struct sw_port, node, &dp->port_list) port_count++;
 
-/* VLAN
-        struct vlan_eth_header *veh = buffer->data;
-        output_packet(dp, buffer, veh->veth_tci % dp->key, 0);
-*/
+
+        /*
+        LIST_FOR_EACH (p, struct sw_port, node, &dp->port_list) {
+            struct ofp_phy_port *opp = ofpbuf_put_uninit(buffer, sizeof *opp);
+            memset(opp, 0, sizeof *opp);
+            fill_port_desc(p, opp);
+        }
+
+        dp->key2 = OFPPS_LINK_DOWN;
+        */
+
+
+        // filter out mdns and icmpv6 muticast
+        uint64_t filter = 819;
+        if( !(filter == (filter & mac__dst)) ) {
+
+
+
+            if( ((mac_src % cur_key) == (dp->custom_port) || ((mac_src % cur_key) > port_count) )){
+                int nRand = rand() % ((port_count + 1) - 1) + 1;
+                while( (nRand == (dp->custom_port))  || ( nRand == (mac__dst % cur_key) ) ){
+                    nRand = rand() % ((port_count + 1) - 1) + 1;
+                }
+                output_packet(dp, buffer, nRand, 0);
+
+            }else{
+                // KeyFlow forwarding   
+
+                output_packet(dp, buffer, mac_src % cur_key, 0);
+            }
+
+        
+        }      
     }
 }
+  
+/** ------------------------------------------------------------------------------------------------------
+    //KAR NIP(not the input port) forwarding Modify By AlbertCheng 10/22/2020
+    
+            if( ((mac_src % cur_key) == (dp->custom_port) || ((mac_src % cur_key) > port_count) )){
+                int nRand = rand() % ((port_count + 1) - 1) + 1;
+                while( (nRand == (dp->custom_port))  || ( nRand == (mac__dst % cur_key) ) ){
+                    nRand = rand() % ((port_count + 1) - 1) + 1;
+                }
+                output_packet(dp, buffer, nRand, 0);
 
+            }else{
+                // KeyFlow forwarding   
+
+                output_packet(dp, buffer, mac_src % cur_key, 0);
+            }
+
+
+    ------------------------------------------------------------------------------------------------------
+*/
+        
+
+/** ------------------------------------------------------------------------------------------------------
+    // KAR AVP(any valid port) forwarding Modify By AlbertCheng 10/22/2020 (Checked on 10/23 worked)
+
+            if( ((mac_src % cur_key) == (dp->custom_port) || ((mac_src % cur_key) > port_count) )){
+                int nRand = rand() % ((port_count + 1) - 1) + 1;
+                while( (nRand == (dp->custom_port))  ){
+                    nRand = rand() % ((port_count + 1) - 1) + 1;
+                }
+                output_packet(dp, buffer, nRand, 0);
+
+            }else{
+                // KeyFlow forwarding   
+
+                output_packet(dp, buffer, mac_src % cur_key, 0);
+            }
+
+    ------------------------------------------------------------------------------------------------------
+*/
+
+
+/** ------------------------------------------------------------------------------------------------------
+    // KeyPair forwarding 2020/10/08 (Checked on 10/09 worked)
+
+            if( !(dp->custom_port)){
+                uint32_t cur_key = dp->key;
+                output_packet(dp, buffer, mac_src % cur_key, 0);
+            }else{
+                uint32_t cur_key = dp->key2;
+                output_packet(dp, buffer, mac_src % cur_key, 0);
+            }
+        
+    ------------------------------------------------------------------------------------------------------
+*/
+
+
+/** ------------------------------------------------------------------------------------------------------
+            struct eth_header *eh = buffer->data;
+            uint64_t mac_src = (*(uint64_t*)(eh->eth_src));
+            uint64_t mask = 140737488355327;
+            mac_src = mac_src >> 4;
+            mac_src = mac_src & mask;
+            
+            uint64_t cur_key = dp->key;
+            // to void input port to output packet
+            uint64_t mac__dst = (*(uint64_t*)(eh->eth_dst));
+            mac__dst = mac__dst >> 4;
+            mac__dst = mac__dst & mask;
+            
+            // get total port number
+            int port_count = -1;
+            LIST_FOR_EACH (p, struct sw_port, node, &dp->port_list) port_count++;
+
+            // filter out mdns and icmpv6 muticast
+            uint64_t filter = 819;
+            if( !(filter == (filter & mac__dst)) ) {
+
+                // inside
+
+            };      
+
+    ------------------------------------------------------------------------------------------------------
+*/
 static struct ofpbuf *
 make_barrier_reply(const struct ofp_header *req)
 {
@@ -1337,11 +1505,19 @@ error:
     return -EINVAL;
 }
 
+
+/** Modify By Albert Cheng 2020/10/07
+ * 
+*/
 static int
 recv_port_mod(struct datapath *dp, const struct sender *sender UNUSED,
               const void *msg)
 {
     const struct ofp_port_mod *opm = msg;
+    
+
+    // install dp->custom_port flag here
+    dp->custom_port = opm->custom_port;
 
     update_port_flags(dp, opm);
 
@@ -1358,6 +1534,21 @@ recv_key_mod(struct datapath *dp, const struct sender *sender UNUSED,
 
     return 0;
 }
+
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+static int
+recv_key_mod2(struct datapath *dp, const struct sender *sender UNUSED,
+             const void *msg)
+{
+    const struct ofp_key_mod2 *opm = msg;
+
+    dp->key2 = opm->key2;
+
+    return 0;
+}
+
 
 static int
 add_flow(struct datapath *dp, const struct sender *sender,
@@ -1579,6 +1770,20 @@ key_stats_dump(struct datapath *dp UNUSED, void *state UNUSED,
     return 0;
 }
 
+
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+static int
+key_stats_dump2(struct datapath *dp UNUSED, void *state UNUSED,
+               struct ofpbuf *buffer)
+{
+    struct ofp_key2 *ods = ofpbuf_put_uninit(buffer, sizeof *ods);
+
+    ods->key2 = dp->key2;
+
+    return 0;
+}
 struct flow_stats_state {
     int table_idx;
     struct sw_table_position position;
@@ -2042,7 +2247,10 @@ static const struct stats_type stats[] = {
         table_stats_dump,
         NULL
     },
-    {
+    {   
+        /*** OpenFlow StatsRequest message type 4 : Port  
+         * http://flowgrammable.org/sdn/openflow/message-layer/statsrequest/#ofp_1_2 
+         */
         OFPST_PORT,
         sizeof(struct ofp_port_stats_request),
         sizeof(struct ofp_port_stats_request),
@@ -2072,6 +2280,17 @@ static const struct stats_type stats[] = {
         0,
         NULL,
         key_stats_dump,
+        NULL
+    },
+        /**
+         *  Modify By AlbertCheng Second key value 2020/10/06
+        */
+        {
+        OFPST_KEY2,
+        0,
+        0,
+        NULL,
+        key_stats_dump2,
         NULL
     },
 };
@@ -2145,9 +2364,10 @@ recv_stats_request(struct datapath *dp UNUSED, const struct sender *sender,
     struct stats_dump_cb *cb;
     int type, body_len;
     int err;
-
+    /**function converts the unsigned short integer netshort
+       from network byte order to host byte order. */ 
     type = ntohs(rq->type);
-    for (st = stats; ; st++) {
+    for (st = stats; ; st++) {    // stats_type array for StatsRequest Payload, Only purposer for checking type
         if (st >= &stats[ARRAY_SIZE(stats)]) {
             VLOG_WARN_RL(&rl, "received stats request of unknown type %d",
                          type);
@@ -2311,10 +2531,18 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
         min_size = sizeof(struct ofp_flow_mod);
         handler = recv_flow;
         break;
+
+    /**  Modify By Albert Cheng 2020/10/07
+     * dpctl line 1527 
+    */
     case OFPT_PORT_MOD:
         min_size = sizeof(struct ofp_port_mod);
         handler = recv_port_mod;
         break;
+
+
+
+
     case OFPT_STATS_REQUEST:
         min_size = sizeof(struct ofp_stats_request);
         handler = recv_stats_request;
@@ -2339,6 +2567,14 @@ fwd_control_input(struct datapath *dp, const struct sender *sender,
         min_size = sizeof(struct ofp_key_mod);
         handler = recv_key_mod;
         break;
+    /**
+     *  Modify By AlbertCheng Second key value 2020/10/06
+    */
+    case OFPT_KEY_MOD2:
+        min_size = sizeof(struct ofp_key_mod2);
+        handler = recv_key_mod2;
+        break;
+
     default:
         dp_send_error_msg(dp, sender, OFPET_BAD_REQUEST, OFPBRC_BAD_TYPE,
                           msg, length);

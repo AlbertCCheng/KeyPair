@@ -159,6 +159,25 @@ udatapath_cmd(int argc, char *argv[])
     /* Initialize key. */
     dp->key = 0;
 
+
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+
+    dp->key2 = 0;
+
+    //counter
+    dp->temp = 0;
+
+/**
+*  Modify By AlbertCheng Second key value 2020/10/07
+*  custom_port = 0 use key1 , custom_port = use key2
+*/
+
+    dp->custom_port = 0;
+
+
+
     for (;;) {
         dp_run(dp);
         dp_wait(dp);

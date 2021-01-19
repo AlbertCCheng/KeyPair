@@ -109,6 +109,12 @@ inc_protocol_message(struct ofpstat *ifps, struct ofp_header *hdr)
 	case OFPT_KEY_MOD:
 		INC_IFP_STAT(ifps, ofps_key_mod);
 		break;
+	/**
+	 *  Modify By AlbertCheng Second key value 2020/10/06
+	*/
+	case OFPT_KEY_MOD2:
+		INC_IFP_STAT(ifps, ofps_key_mod2);
+		break;
 	default:
 		INC_IFP_STAT(ifps, ofps_unknown);
 		break;

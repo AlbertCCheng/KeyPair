@@ -96,6 +96,13 @@ struct ofpstat {
 	uint64_t ofps_barrier_request;
 	uint64_t ofps_barrier_reply;
 	uint64_t ofps_key_mod;
+
+
+	/**
+	 *  Modify By AlbertCheng Second key value 2020/10/06
+	*/
+	uint64_t ofps_key_mod2;
+
 };
 
 void ofpstat_inc_protocol_stat(struct ofpstat *, struct ofp_header *);

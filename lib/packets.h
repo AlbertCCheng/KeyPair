@@ -135,8 +135,8 @@ struct llc_header {
 } __attribute__((packed));
 BUILD_ASSERT_DECL(LLC_HEADER_LEN == sizeof(struct llc_header));
 
-#define SNAP_ORG_ETHERNET "\0\0" /* The compiler adds a null byte, so
-                                    sizeof(SNAP_ORG_ETHERNET) == 3. */
+#define SNAP_ORG_ETHERNET "\0\0"
+ /* The compiler adds a null byte, so sizeof(SNAP_ORG_ETHERNET) == 3. */
 #define SNAP_HEADER_LEN 5
 struct snap_header {
     uint8_t snap_org[3];

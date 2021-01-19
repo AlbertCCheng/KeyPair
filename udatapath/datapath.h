@@ -132,6 +132,11 @@ struct datapath {
 
     /* Switch ports. */
     struct sw_port ports[DP_MAX_PORTS];
+    /**
+     *  The OpenFlow protocol has the concept of a reserved port number called local. The local
+     *  port enables remote entities to interact with the switch and its network services via the
+     *  OpenFlow designed network, rather than via a separate control network.
+    */
     struct sw_port *local_port;  /* OFPP_LOCAL port, if any. */
     struct list port_list; /* All ports, including local_port. */
 
@@ -145,7 +150,25 @@ struct datapath {
 #endif
 
     /* Key */
-    uint32_t key;
+    uint64_t key;
+
+
+
+    /**
+     *  Modify By AlbertCheng Second key value 2020/10/06
+    */
+    uint64_t key2;
+
+
+
+    uint64_t temp;
+    /**
+    *  Modify By AlbertCheng Second key value 2020/10/07
+    *  custom_port = 0 use key1 , custom_port = use key2
+    */
+
+    uint32_t custom_port;
+
 };
 
 int dp_new(struct datapath **, uint64_t dpid);
@@ -161,6 +184,8 @@ void dp_send_flow_end(struct datapath *, struct sw_flow *,
 void dp_output_port(struct datapath *, struct ofpbuf *, int in_port, 
                     int out_port, uint32_t queue_id, bool ignore_no_fwd);
 void dp_output_control(struct datapath *, struct ofpbuf *, int in_port,
+        size_t max_len, int reason);
+void dp_output_control_nip_get_input(struct datapath *, struct ofpbuf *, int in_port,
         size_t max_len, int reason);
 struct sw_port * dp_lookup_port(struct datapath *, uint16_t);
 struct sw_queue * dp_lookup_queue(struct sw_port *, uint32_t);

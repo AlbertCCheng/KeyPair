@@ -44,6 +44,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+#include <limits.h>  // for INT_MAX
+
 #ifdef HAVE_NETLINK
 #include "netdev.h"
 #include "netlink.h"
@@ -227,6 +229,14 @@ usage(void)
            "\nFor local datapaths and remote switches:\n"
            "  dump-key SWITCH             print switch key\n"
            "  key-mod SWITCH KEY          modify switch key\n"
+        
+        /**
+         *  Modify By AlbertCheng Second key value 2020/10/06
+        */
+           "  dump-key2 SWITCH             print switch key\n"
+           "  key-mod2 SWITCH KEY          modify switch key\n"
+
+
            "  show SWITCH                 show basic information\n"
            "  status SWITCH [KEY]         report statistics (about KEY)\n"
            "  show-protostat SWITCH       report protocol statistics\n"
@@ -459,12 +469,21 @@ dump_stats_transaction(const char *vconn_name, struct ofpbuf *request)
         recv_xid = ((struct ofp_header *) reply->data)->xid;
         if (send_xid == recv_xid) {
             struct ofp_stats_reply *osr;
-          
+            //printf("send_xid == recv_xid -> %p\n\n", recv_xid);
+            //printf("reply->data : %p\nreply->size : %lu\n", reply->data, reply->size);
+            
+            /* ofp_print print : 
+            error_msg (xid=0xd6c5b9ac): type1(OFPET_BAD_REQUEST) code2(OFPBRC_BAD_STAT) 
+            payload: stats_request (xid=0xd6c5b9ac): type=6(key)
+            
+            Pretty-print the OpenFlow packet */
             ofp_print(stdout, reply->data, reply->size, 1);
-
+            /* If 'b' contains at least 'offset + size' bytes of data, returns a pointer to
+            * byte 'offset'.  Otherwise, returns a null pointer. */
             osr = ofpbuf_at(reply, 0, sizeof *osr);
             done = !osr || !(ntohs(osr->flags) & OFPSF_REPLY_MORE);
         } else {
+            printf("send_xid != recv_xid\n");
             VLOG_DBG("received reply with xid %08"PRIx32" "
                      "!= expected %08"PRIx32, recv_xid, send_xid);
         }
@@ -730,7 +749,10 @@ do_dump_desc(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
 
 static void
 do_dump_key(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
-{
+{     
+    /*printf("do_dump_key func:\nargv[1] -> %s\nOFPST_KEY -> %d\n\n"   \
+           , argv[1], OFPST_KEY); */
+    /* argv[1] : tcp:127.0.0.1:6654*/
     dump_trivial_stats_transaction(argv[1], OFPST_KEY);
 }
 
@@ -740,20 +762,73 @@ do_mod_key(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
     struct vconn *vconn;
     struct ofpbuf *buffer;
     struct ofp_key_mod *ofm;
-
+    /* Creates and returns a new ofpbuf with an initial capacity of 'size'
+    * bytes. */
     buffer = ofpbuf_new(sizeof(*ofm));
+    /* Appends 'size' bytes of data to the tail end of 'b', reallocating and
+    * copying its data if necessary*/
     ofpbuf_put_uninit(buffer, sizeof(*ofm));
-
+    /* Returns a pointer to byte 'offset' in 'b', which must contain at least
+    * 'offset + size' bytes of data. */
     ofm = ofpbuf_at_assert(buffer, 0, sizeof(*ofm));
     ofm->header.version = OFP_VERSION;
+    /* header type OFPT_KEY_MOD check header*/
     ofm->header.type = OFPT_KEY_MOD;
     ofm->header.length = htons(sizeof(*ofm));
+    /*atoi convert string to integer*/
     ofm->key = atoi(argv[2]);
-
+    /***printf("ofm_key_value: %d\ndo_mod_key_p1: \nargv[0] -> %s\nargv[1] -> %s\nargv[2] -> %s\n"  \
+            , ofm->key,argv[0], argv[1], argv[2]); */
+    /* open virtual connection argv[1] : switch s1: tcp:127.0.0.1:6654*/
     open_vconn(argv[1], &vconn);
     send_openflow_buffer(vconn, buffer);
     vconn_close(vconn);
 }
+
+
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+static void
+do_dump_key2(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
+{     
+    /*printf("do_dump_key func:\nargv[1] -> %s\nOFPST_KEY -> %d\n\n"   \
+           , argv[1], OFPST_KEY); */
+    /* argv[1] : tcp:127.0.0.1:6654*/
+    dump_trivial_stats_transaction(argv[1], OFPST_KEY2);
+}
+
+static void
+do_mod_key2(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
+{
+    struct vconn *vconn;
+    struct ofpbuf *buffer;
+    struct ofp_key_mod2 *ofm;
+    /* Creates and returns a new ofpbuf with an initial capacity of 'size'
+    * bytes. */
+    buffer = ofpbuf_new(sizeof(*ofm));
+    /* Appends 'size' bytes of data to the tail end of 'b', reallocating and
+    * copying its data if necessary*/
+    ofpbuf_put_uninit(buffer, sizeof(*ofm));
+    /* Returns a pointer to byte 'offset' in 'b', which must contain at least
+    * 'offset + size' bytes of data. */
+    ofm = ofpbuf_at_assert(buffer, 0, sizeof(*ofm));
+    ofm->header.version = OFP_VERSION;
+    /* header type OFPT_KEY_MOD check header*/
+    ofm->header.type = OFPT_KEY_MOD2;
+    ofm->header.length = htons(sizeof(*ofm));
+    /*atoi convert string to integer*/
+    ofm->key2 = atoi(argv[2]);
+    /***printf("ofm_key_value: %d\ndo_mod_key_p1: \nargv[0] -> %s\nargv[1] -> %s\nargv[2] -> %s\n"  \
+            , ofm->key,argv[0], argv[1], argv[2]); */
+    /* open virtual connection argv[1] : switch s1: tcp:127.0.0.1:6654*/
+    open_vconn(argv[1], &vconn);
+    send_openflow_buffer(vconn, buffer);
+    vconn_close(vconn);
+}
+
+
+
 
 static void
 do_dump_tables(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
@@ -1399,6 +1474,12 @@ do_probe(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
     vconn_close(vconn);
 }
 
+
+
+
+
+
+
 static void
 do_mod_port(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
 {
@@ -1447,6 +1528,9 @@ do_mod_port(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
         ofp_fatal(0, "couldn't find monitored port: %s", argv[2]);
     }
 
+    /**
+     * udatapath/datapath.c line 2433
+    */
     opm = make_openflow(sizeof(struct ofp_port_mod), OFPT_PORT_MOD, &request);
     opm->port_no = osf->ports[port_idx].port_no;
     memcpy(opm->hw_addr, osf->ports[port_idx].hw_addr, sizeof opm->hw_addr);
@@ -1472,6 +1556,52 @@ do_mod_port(const struct settings *s UNUSED, int argc UNUSED, char *argv[])
     } else {
         ofp_fatal(0, "unknown mod-port command '%s'", argv[3]);
     }
+
+    /*
+    *   Modify Albert Cheng 2020/10/07
+    */
+    size_t len = strlen(argv[3]);
+    char * input = malloc(len+1);
+    if(input==NULL)
+    {
+        /* allocation failed */
+    }
+    strcpy(input, argv[3]);
+
+   
+    char up[] = "up";
+    int cmp_up_result;
+    cmp_up_result = strcmp(up, input);
+
+    // https://stackoverflow.com/questions/9748393/how-can-i-get-argv-as-int/38669018#:~:text=argv%5B1%5D%20is%20a%20pointer,a%20string%20to%20an%20int%20.
+    char *p;
+    int num;
+
+    errno = 0;
+    long conv = strtol(argv[2], &p, 10);
+
+    // Check for errors: e.g., the string does not represent an integer
+    // or the integer is larger than int
+    if (errno != 0 || *p != '\0' || conv > INT_MAX) {
+        // Put here the handling of the error, like exiting the program with
+        // an error message
+    } else {
+        // No error
+        num = conv;
+    }
+    // ----------------------------------------
+
+    if(cmp_up_result == 0){
+        // Use first key (link up)
+        opm->custom_port = 0;
+    }else{
+        // Use second key (link down)
+        // sleep is temp usage
+        opm->custom_port = num;
+    }
+
+    free(input);
+
 
     send_openflow_buffer(vconn, request);
 
@@ -1797,9 +1927,17 @@ static struct command all_commands[] = {
     { "probe", 1, 1, do_probe },
     { "ping", 1, 2, do_ping },
     { "benchmark", 3, 3, do_benchmark },
-
+    
     { "dump-key", 1, 1, do_dump_key },
     { "key-mod", 2, 2, do_mod_key },
 
+
+/**
+ *  Modify By AlbertCheng Second key value 2020/10/06
+*/
+    { "dump-key2", 1, 1, do_dump_key2 },
+    { "key-mod2", 2, 2, do_mod_key2 },
+
+    
     { NULL, 0, 0, NULL },
 };

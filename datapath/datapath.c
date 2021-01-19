@@ -628,6 +628,7 @@ dp_xmit_skb(struct sk_buff *skb)
 
 /* Takes ownership of 'skb' and transmits it to 'out_port' on 'dp'.
  */
+// Finding with max port OFPP_FLOOD : dp_output_port(dp, skb, prev_port, 0);
 int dp_output_port(struct datapath *dp, struct sk_buff *skb, int out_port,
 		   int ignore_no_fwd)
 {
