@@ -1291,7 +1291,7 @@ void fwd_port_input(struct datapath *dp, struct ofpbuf *buffer,
     }
 }
 /** ------------------------------------------------------------------------------------------------------
-    // HP( hot potato ) forwarding Modify By AlbertCheng 1/21/2021
+    // HP( hot potato ) forwarding Modify By AlbertCheng 1/21/2021 --> not test yet
     
 
                 int nRand = rand() % ((port_count + 1) - 1) + 1;
