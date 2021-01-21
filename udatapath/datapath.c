@@ -972,33 +972,6 @@ dp_output_control(struct datapath *dp, struct ofpbuf *buffer, int in_port,
     send_openflow_buffer(dp, buffer, NULL);
 }
 
-void
-dp_output_control_nip_get_input(struct datapath *dp, struct ofpbuf *buffer, int in_port,
-                  size_t max_len, int reason)
-{
-    struct ofp_packet_in *opi;
-    size_t total_len;
-    uint32_t buffer_id;
-
-    buffer_id = save_buffer(buffer);
-    total_len = buffer->size;
-    if (buffer_id != UINT32_MAX && buffer->size > max_len) {
-        buffer->size = max_len;
-    }
-
-    opi = ofpbuf_push_uninit(buffer, offsetof(struct ofp_packet_in, data));
-    opi->header.version = OFP_VERSION;
-    opi->header.type    = OFPT_PACKET_IN;
-    opi->header.length  = htons(buffer->size);
-    opi->header.xid     = htonl(0);
-    opi->buffer_id      = htonl(buffer_id);
-    opi->total_len      = htons(total_len);
-    opi->in_port        = htons(in_port);
-    opi->reason         = reason;
-    opi->pad            = 0;
-    //ofpbuf_delete(buffer); not checked yet
-    //send_openflow_buffer(dp, buffer, NULL);
-}
 
 static void
 fill_queue_desc(struct ofpbuf *buffer, struct sw_queue *q,
@@ -1317,6 +1290,21 @@ void fwd_port_input(struct datapath *dp, struct ofpbuf *buffer,
         }      
     }
 }
+/** ------------------------------------------------------------------------------------------------------
+    // HP( hot potato ) forwarding Modify By AlbertCheng 1/21/2021
+    
+
+                int nRand = rand() % ((port_count + 1) - 1) + 1;
+                while( (nRand == (dp->custom_port))  || ( nRand == (mac__dst % cur_key) ) ){
+                    nRand = rand() % ((port_count + 1) - 1) + 1;
+                }
+                output_packet(dp, buffer, nRand, 0);
+
+
+    ------------------------------------------------------------------------------------------------------
+*/
+
+
   
 /** ------------------------------------------------------------------------------------------------------
     //KAR NIP(not the input port) forwarding Modify By AlbertCheng 10/22/2020
