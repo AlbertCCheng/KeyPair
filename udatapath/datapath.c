@@ -1278,7 +1278,7 @@ void fwd_port_input(struct datapath *dp, struct ofpbuf *buffer,
                 while( (nRand == (dp->custom_port))  || ( nRand == (mac__dst % cur_key) ) ){
                     nRand = rand() % ((port_count + 1) - 1) + 1;
                 }
-                output_packet(dp, buffer, nRand, 0);
+                output_packet(dp, buffer, nRand, 0); 
 
             }else{
                 // KeyFlow forwarding   
@@ -1290,6 +1290,73 @@ void fwd_port_input(struct datapath *dp, struct ofpbuf *buffer,
         }      
     }
 }
+/**     ------------------------------------------------------------------------------------------------------
+            
+            
+            // NIP test
+            if( ((mac_src % cur_key) == (dp->custom_port) || ( dp->key2 == 1) )){
+
+                int nRand = rand() % ((port_count + 1) - 1) + 1;
+
+                // those switch arn't on primary path
+                if(dp->key2 == 1){
+
+                    output_packet(dp, buffer, nRand, 0);
+
+                }else{
+
+                    while( (nRand == (dp->custom_port)) || ( nRand == (mac__dst % cur_key))) {
+                        nRand = rand() % ((port_count + 1) - 1) + 1;
+                    }
+                    output_packet(dp, buffer, nRand, 0);
+
+                }
+
+            }else{
+                // KeyFlow forwarding   
+
+                output_packet(dp, buffer, mac_src % cur_key, 0);
+            }
+
+
+    ------------------------------------------------------------------------------------------------------
+*/
+
+
+
+/**     ------------------------------------------------------------------------------------------------------
+        // AVP test
+            
+            // KeyFlow with random deflection when encounter link failure
+            if( ((mac_src % cur_key) == (dp->custom_port) || ( dp->key2 == 1) )){
+
+                int nRand = rand() % ((port_count + 1) - 1) + 1;
+
+                // those switch arn't on primary path
+                if(dp->key2 == 1){
+
+                    output_packet(dp, buffer, nRand, 0);
+
+                }else{
+
+                    while( (nRand == (dp->custom_port)) ) {
+                        nRand = rand() % ((port_count + 1) - 1) + 1;
+                    }
+                    output_packet(dp, buffer, nRand, 0);
+
+                }
+
+            }else{
+                // KeyFlow forwarding   
+
+                output_packet(dp, buffer, mac_src % cur_key, 0);
+            }
+
+
+    ------------------------------------------------------------------------------------------------------
+*/
+
+
 /** ------------------------------------------------------------------------------------------------------
     // HP( hot potato ) forwarding Modify By AlbertCheng 1/21/2021
     
